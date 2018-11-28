@@ -6,8 +6,8 @@ the current supported databases are:
 
 | type | database |
 | ------ | ------ |
-| mysql | PostgreSQL |
-| pgsql | MySQL |
+| mysql | MySQL |
+| pgsql | PostgreSQL |
 | sqlite | SQLite |
 | sqlsrv | SqlServer |
 
@@ -58,3 +58,9 @@ if ($e->enforce($sub, $obj, $act) === true) {
 ### Getting Help
 
 - [php-casbin](https://github.com/php-casbin/php-casbin)
+
+### License
+
+This project is licensed under the [Apache 2.0 license](LICENSE).## License
+
+This project is licensed under the [Apache 2.0 license](LICENSE).
