@@ -1,8 +1,12 @@
 # Database adapter for php-casbin
 
-Database adapter for php-casbin.
+[![Latest Stable Version](https://poser.pugx.org/casbin/database-adapter/v/stable)](https://packagist.org/packages/casbin/database-adapter)
+[![Total Downloads](https://poser.pugx.org/casbin/database-adapter/downloads)](https://packagist.org/packages/casbin/database-adapter)
+[![License](https://poser.pugx.org/casbin/database-adapter/license)](https://packagist.org/packages/casbin/database-adapter)
 
-the current supported databases are:
+Database adapter for [PHP-Casbin](https://github.com/php-casbin/php-casbin).
+
+The current supported databases are:
 
 | type | database |
 | ------ | ------ |
@@ -29,8 +33,6 @@ use Casbin\Enforcer;
 use Casbin\Util\Log;
 use CasbinAdapter\Database\Adapter as DatabaseAdapter;
 
-Log::$enableLog = true;
-
 $config = [
     'type'     => 'mysql', // mysql,pgsql,sqlite,sqlsrv
     'hostname' => '127.0.0.1',
@@ -42,14 +44,14 @@ $config = [
 
 $adapter = DatabaseAdapter::newAdapter($config);
 
-$e = new Enforcer(__DIR__ . '/examples/modelandpolicy/basic_model.conf', $adapter);
+$e = new Enforcer('path/to/model.conf', $adapter);
 
 $sub = "alice"; // the user that wants to access a resource.
 $obj = "data1"; // the resource that is going to be accessed.
 $act = "read"; // the operation that the user performs on the resource.
 
 if ($e->enforce($sub, $obj, $act) === true) {
-    // permit alice to read data1x
+    // permit alice to read data1
 } else {
     // deny the request, show an error
 }
