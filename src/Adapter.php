@@ -2,7 +2,6 @@
 
 namespace CasbinAdapter\Database;
 
-use Casbin\Exceptions\CasbinException;
 use Casbin\Persist\Adapter as AdapterContract;
 use TechOne\Database\Manager;
 use Casbin\Persist\AdapterHelper;
@@ -36,61 +35,8 @@ class Adapter implements AdapterContract
 
     public function initTable()
     {
-        if ('pgsql' == $this->config['type']) {
-            $sql = <<<EOT
-CREATE TABLE IF NOT EXISTS $this->casbinRuleTableName (
-  id bigserial NOT NULL,
-  ptype varchar(255) NOT NULL,
-  v0 varchar(255) DEFAULT NULL,
-  v1 varchar(255) DEFAULT NULL,
-  v2 varchar(255) DEFAULT NULL,
-  v3 varchar(255) DEFAULT NULL,
-  v4 varchar(255) DEFAULT NULL,
-  v5 varchar(255) DEFAULT NULL,
-  PRIMARY KEY (id)
-);
-EOT;
-        } elseif ('sqlite' == $this->config['type']) {
-            $sql = <<<EOT
-CREATE TABLE IF NOT EXISTS `$this->casbinRuleTableName` (
-  `id` INTEGER PRIMARY KEY AUTOINCREMENT ,
-  `ptype` varchar(255) NOT NULL,
-  `v0` varchar(255) DEFAULT NULL,
-  `v1` varchar(255) DEFAULT NULL,
-  `v2` varchar(255) DEFAULT NULL,
-  `v3` varchar(255) DEFAULT NULL,
-  `v4` varchar(255) DEFAULT NULL,
-  `v5` varchar(255) DEFAULT NULL
-);
-EOT;
-        } elseif ('sqlsrv' == $this->config['type']) {
-            $sql = <<<EOT
-CREATE TABLE IF NOT EXISTS `$this->casbinRuleTableName` (
-  id int IDENTITY(1,1),
-  ptype varchar(255) NOT NULL,
-  v0 varchar(255) DEFAULT NULL,
-  v1 varchar(255) DEFAULT NULL,
-  v2 varchar(255) DEFAULT NULL,
-  v3 varchar(255) DEFAULT NULL,
-  v4 varchar(255) DEFAULT NULL,
-  v5 varchar(255) DEFAULT NULL
-);
-EOT;
-        } else {
-            $sql = <<<EOT
-CREATE TABLE IF NOT EXISTS `$this->casbinRuleTableName` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `ptype` varchar(255) NOT NULL,
-  `v0` varchar(255) DEFAULT NULL,
-  `v1` varchar(255) DEFAULT NULL,
-  `v2` varchar(255) DEFAULT NULL,
-  `v3` varchar(255) DEFAULT NULL,
-  `v4` varchar(255) DEFAULT NULL,
-  `v5` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-);
-EOT;
-        }
+        $sql = file_get_contents(__DIR__.'/../migrations/'.$this->config['type'].'.sql');
+        $sql = str_replace('%table_name%', $this->casbinRuleTableName, $sql);
         $this->connection->execute($sql, []);
     }
 
@@ -150,9 +96,6 @@ EOT;
             $where['v'.strval($key)] = $value;
             $condition[] = 'v'.strval($key).' = :'.'v'.strval($key);
         }
-        if (empty($condition)) {
-            return;
-        }
 
         $sql = 'DELETE FROM '.$this->casbinRuleTableName.' WHERE '.implode(' AND ', $condition);
 
@@ -161,6 +104,17 @@ EOT;
 
     public function removeFilteredPolicy($sec, $ptype, $fieldIndex, ...$fieldValues)
     {
-        throw new CasbinException('not implemented');
+        $where['ptype'] = $ptype;
+        $condition[] = 'ptype = :ptype';
+        foreach (range(0, 5) as $value) {
+            if ($fieldIndex <= $value && $value < $fieldIndex + count($fieldValues)) {
+                $where['v'.strval($value)] = $fieldValues[$value - $fieldIndex];
+                $condition[] = 'v'.strval($value).' = :'.'v'.strval($value);
+            }
+        }
+
+        $sql = 'DELETE FROM '.$this->casbinRuleTableName.' WHERE '.implode(' AND ', $condition);
+
+        return $this->connection->execute($sql, $where);
     }
 }

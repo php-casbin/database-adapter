@@ -10,12 +10,21 @@
     ],
     "license": "Apache-2.0",
     "require": {
-    	"casbin/casbin": ">=0.1.4",
+    	"casbin/casbin": ">=0.2",
         "techone/database": ">=0.2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~5.7|~6.0",
+        "php-coveralls/php-coveralls": "^2.1"
     },
     "autoload": {
         "psr-4": {
             "CasbinAdapter\\Database\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
         }
     }
 }

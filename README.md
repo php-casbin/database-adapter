@@ -1,5 +1,7 @@
 # Database adapter for php-casbin
 
+[![Build Status](https://travis-ci.org/php-casbin/database-adapter.svg?branch=master)](https://travis-ci.org/php-casbin/database-adapter)
+[![Coverage Status](https://coveralls.io/repos/github/php-casbin/database-adapter/badge.svg)](https://coveralls.io/github/php-casbin/database-adapter)
 [![Latest Stable Version](https://poser.pugx.org/casbin/database-adapter/v/stable)](https://packagist.org/packages/casbin/database-adapter)
 [![Total Downloads](https://poser.pugx.org/casbin/database-adapter/downloads)](https://packagist.org/packages/casbin/database-adapter)
 [![License](https://poser.pugx.org/casbin/database-adapter/license)](https://packagist.org/packages/casbin/database-adapter)
