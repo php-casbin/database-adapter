@@ -58,10 +58,12 @@ class Adapter implements AdapterContract
 
     public function loadPolicy($model)
     {
-        $rows = $this->connection->query('SELECT * FROM '.$this->casbinRuleTableName.'');
+        $rows = $this->connection->query('SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName.'');
 
         foreach ($rows as $row) {
-            $line = implode(', ', array_slice(array_values($row), 1));
+            $line = implode(', ', array_filter($row, function ($val) {
+                return '' != $val && !is_null($val);
+            }));
             $this->loadPolicyLine(trim($line), $model);
         }
     }
