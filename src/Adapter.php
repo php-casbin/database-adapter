@@ -110,8 +110,10 @@ class Adapter implements AdapterContract
         $condition[] = 'ptype = :ptype';
         foreach (range(0, 5) as $value) {
             if ($fieldIndex <= $value && $value < $fieldIndex + count($fieldValues)) {
-                $where['v'.strval($value)] = $fieldValues[$value - $fieldIndex];
-                $condition[] = 'v'.strval($value).' = :'.'v'.strval($value);
+                if ('' != $fieldValues[$value - $fieldIndex]) {
+                    $where['v'.strval($value)] = $fieldValues[$value - $fieldIndex];
+                    $condition[] = 'v'.strval($value).' = :'.'v'.strval($value);
+                }
             }
         }
 
