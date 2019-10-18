@@ -2,6 +2,7 @@
 
 namespace CasbinAdapter\Database;
 
+use Casbin\Model\Model;
 use Casbin\Persist\Adapter as AdapterContract;
 use TechOne\Database\Manager;
 use Casbin\Persist\AdapterHelper;
@@ -56,7 +57,12 @@ class Adapter implements AdapterContract
         $this->connection->execute($sql, array_values($col));
     }
 
-    public function loadPolicy($model)
+    /**
+     * loads all policy rules from the storage.
+     *
+     * @param Model $model
+     */
+    public function loadPolicy(Model $model): void
     {
         $rows = $this->connection->query('SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName.'');
 
@@ -68,29 +74,47 @@ class Adapter implements AdapterContract
         }
     }
 
-    public function savePolicy($model)
+    /**
+     * saves all policy rules to the storage.
+     *
+     * @param Model $model
+     */
+    public function savePolicy(Model $model): void
     {
-        foreach ($model->model['p'] as $ptype => $ast) {
+        foreach ($model['p'] as $ptype => $ast) {
             foreach ($ast->policy as $rule) {
                 $this->savePolicyLine($ptype, $rule);
             }
         }
 
-        foreach ($model->model['g'] as $ptype => $ast) {
+        foreach ($model['g'] as $ptype => $ast) {
             foreach ($ast->policy as $rule) {
                 $this->savePolicyLine($ptype, $rule);
             }
         }
-
-        return true;
     }
 
-    public function addPolicy($sec, $ptype, $rule)
+    /**
+     * adds a policy rule to the storage.
+     * This is part of the Auto-Save feature.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param array  $rule
+     */
+    public function addPolicy(string $sec, string $ptype, array $rule): void
     {
-        return $this->savePolicyLine($ptype, $rule);
+        $this->savePolicyLine($ptype, $rule);
     }
 
-    public function removePolicy($sec, $ptype, $rule)
+    /**
+     * This is part of the Auto-Save feature.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param array  $rule
+     */
+    public function removePolicy(string $sec, string $ptype, array $rule): void
     {
         $where['ptype'] = $ptype;
         $condition[] = 'ptype = :ptype';
@@ -101,10 +125,19 @@ class Adapter implements AdapterContract
 
         $sql = 'DELETE FROM '.$this->casbinRuleTableName.' WHERE '.implode(' AND ', $condition);
 
-        return $this->connection->execute($sql, $where);
+        $this->connection->execute($sql, $where);
     }
 
-    public function removeFilteredPolicy($sec, $ptype, $fieldIndex, ...$fieldValues)
+    /**
+     * RemoveFilteredPolicy removes policy rules that match the filter from the storage.
+     * This is part of the Auto-Save feature.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param int    $fieldIndex
+     * @param string ...$fieldValues
+     */
+    public function removeFilteredPolicy(string $sec, string $ptype, int $fieldIndex, string ...$fieldValues): void
     {
         $where['ptype'] = $ptype;
         $condition[] = 'ptype = :ptype';
@@ -119,6 +152,6 @@ class Adapter implements AdapterContract
 
         $sql = 'DELETE FROM '.$this->casbinRuleTableName.' WHERE '.implode(' AND ', $condition);
 
-        return $this->connection->execute($sql, $where);
+        $this->connection->execute($sql, $where);
     }
 }
