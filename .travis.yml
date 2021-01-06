@@ -21,7 +21,7 @@ install:
 script:
  - vendor/bin/phpunit --version
  - mkdir -p build/logs
- - vendor/bin/phpunit
+ - XDEBUG_MODE=coverage vendor/bin/phpunit
 
 after_script:
  - travis_retry vendor/bin/php-coveralls -v
