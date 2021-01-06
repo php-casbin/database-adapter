@@ -35,7 +35,7 @@ class Adapter implements AdapterContract, FilteredAdapter
         $this->initTable();
     }
 
-        /**
+    /**
      * Returns true if the loaded policy has been filtered.
      *
      * @return bool
@@ -43,6 +43,51 @@ class Adapter implements AdapterContract, FilteredAdapter
     public function isFiltered(): bool
     {
         return $this->filtered;
+    }
+
+    public static function newAdapter(array $config)
+    {
+        return new static($config);
+    }
+
+    public function initTable()
+    {
+        $sql = file_get_contents(__DIR__.'/../migrations/'.$this->config['type'].'.sql');
+        $sql = str_replace('%table_name%', $this->casbinRuleTableName, $sql);
+        $this->connection->execute($sql, []);
+    }
+
+    public function savePolicyLine($ptype, array $rule)
+    {
+        $col['ptype'] = $ptype;
+        foreach ($rule as $key => $value) {
+            $col['v'.strval($key).''] = $value;
+        }
+
+        $colStr = implode(', ', array_keys($col));
+
+        $name = rtrim(str_repeat('?, ', count($col)), ', ');
+
+        $sql = 'INSERT INTO '.$this->casbinRuleTableName.'('.$colStr.') VALUES ('.$name.') ';
+
+        $this->connection->execute($sql, array_values($col));
+    }
+
+    /**
+     * loads all policy rules from the storage.
+     *
+     * @param Model $model
+     */
+    public function loadPolicy(Model $model): void
+    {
+        $rows = $this->connection->query('SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName.'');
+
+        foreach ($rows as $row) {
+            $line = implode(', ', array_filter($row, function ($val) {
+                return '' != $val && !is_null($val);
+            }));
+            $this->loadPolicyLine(trim($line), $model);
+        }
     }
 
     /**
@@ -92,51 +137,6 @@ class Adapter implements AdapterContract, FilteredAdapter
         }
         
         $this->filtered = true;
-    }
-
-    public static function newAdapter(array $config)
-    {
-        return new static($config);
-    }
-
-    public function initTable()
-    {
-        $sql = file_get_contents(__DIR__.'/../migrations/'.$this->config['type'].'.sql');
-        $sql = str_replace('%table_name%', $this->casbinRuleTableName, $sql);
-        $this->connection->execute($sql, []);
-    }
-
-    public function savePolicyLine($ptype, array $rule)
-    {
-        $col['ptype'] = $ptype;
-        foreach ($rule as $key => $value) {
-            $col['v'.strval($key).''] = $value;
-        }
-
-        $colStr = implode(', ', array_keys($col));
-
-        $name = rtrim(str_repeat('?, ', count($col)), ', ');
-
-        $sql = 'INSERT INTO '.$this->casbinRuleTableName.'('.$colStr.') VALUES ('.$name.') ';
-
-        $this->connection->execute($sql, array_values($col));
-    }
-
-    /**
-     * loads all policy rules from the storage.
-     *
-     * @param Model $model
-     */
-    public function loadPolicy(Model $model): void
-    {
-        $rows = $this->connection->query('SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName.'');
-
-        foreach ($rows as $row) {
-            $line = implode(', ', array_filter($row, function ($val) {
-                return '' != $val && !is_null($val);
-            }));
-            $this->loadPolicyLine(trim($line), $model);
-        }
     }
 
     /**
