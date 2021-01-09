@@ -9,6 +9,7 @@ use Casbin\Persist\AdapterHelper;
 use Casbin\Persist\FilteredAdapter;
 use Casbin\Persist\Adapters\Filter;
 use Casbin\Exceptions\InvalidFilterTypeException;
+use Closure;
 
 /**
  * DatabaseAdapter.
@@ -27,6 +28,8 @@ class Adapter implements AdapterContract, FilteredAdapter
 
     public $casbinRuleTableName = 'casbin_rule';
 
+    public $rows = [];
+
     public function __construct(array $config)
     {
         $this->config = $config;
@@ -43,6 +46,16 @@ class Adapter implements AdapterContract, FilteredAdapter
     public function isFiltered(): bool
     {
         return $this->filtered;
+    }
+
+    /**
+     * Sets filtered parameter.
+     *
+     * @param bool $filtered
+     */
+    public function setFiltered(bool $filtered): void
+    {
+        $this->filtered = $filtered;
     }
 
     public static function newAdapter(array $config)
@@ -88,55 +101,6 @@ class Adapter implements AdapterContract, FilteredAdapter
             }));
             $this->loadPolicyLine(trim($line), $model);
         }
-    }
-
-    /**
-     * Loads only policy rules that match the filter from storage.
-     *
-     * @param Model $model
-     * @param mixed $filter
-     *
-     * @throws CasbinException
-     */
-    public function loadFilteredPolicy(Model $model, $filter): void
-    {
-        // if $filter is empty, load all policies
-        if (is_null($filter)) {
-            $this->loadPolicy($model);
-            return;
-        }
-        // validate $filter is a instance of Filter    
-        if (!$filter instanceof Filter) {
-            throw new InvalidFilterTypeException('invalid filter type');
-        }
-        $type = '';
-        $filter = (array) $filter;
-        // choose which ptype to use
-        foreach($filter as $i => $v) {
-            if (!empty($v)) {
-                array_unshift($filter[$i], $i);
-                $type = $i;
-                break;
-            }
-        }
-        $sql = 'SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName . ' WHERE ';
-        $items = ['ptype', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
-        $temp = [];
-        $values = [];
-        foreach($items as $i => $item) {
-            if (isset($filter[$type][$i]) && !empty($filter[$type][$i])) {
-                array_push($temp, $item . '=:' . $item);
-                $values[$item] = $filter[$type][$i];
-            }
-        }
-        $sql .= implode(' and ', $temp);
-        $rows = $this->connection->query($sql, $values);
-        foreach($rows as $row) {
-            $line = implode(', ', $row);
-            $this->loadPolicyLine($line, $model);
-        }
-        
-        $this->filtered = true;
     }
 
     /**
@@ -218,5 +182,62 @@ class Adapter implements AdapterContract, FilteredAdapter
         $sql = 'DELETE FROM '.$this->casbinRuleTableName.' WHERE '.implode(' AND ', $condition);
 
         $this->connection->execute($sql, $where);
+    }
+
+        /**
+     * Loads only policy rules that match the filter from storage.
+     *
+     * @param Model $model
+     * @param mixed $filter
+     *
+     * @throws CasbinException
+     */
+    public function loadFilteredPolicy(Model $model, $filter): void
+    {
+        // if $filter is empty, load all policies
+        if (is_null($filter)) {
+            $this->loadPolicy($model);
+            return;
+        }
+        // the basic sql
+        $sql = 'SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName . ' WHERE ';
+        
+        if ($filter instanceof Filter) {
+            $type = '';
+            $filter = (array) $filter;
+            // choose which ptype to use
+            foreach($filter as $i => $v) {
+                if (!empty($v)) {
+                    array_unshift($filter[$i], $i);
+                    $type = $i;
+                    break;
+                }
+            }
+            $items = ['ptype', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
+            $temp = [];
+            $values = [];
+            foreach($items as $i => $item) {
+                if (isset($filter[$type][$i]) && !empty($filter[$type][$i])) {
+                    array_push($temp, $item . '=:' . $item);
+                    $values[$item] = $filter[$type][$i];
+                }
+            }
+            $sql .= implode(' and ', $temp);
+            $rows = $this->connection->query($sql, $values);
+        } elseif (is_string($filter)) {
+            $sql .= $filter;
+            $rows = $this->connection->query($sql);
+        } else if ($filter instanceof Closure) {
+            $filter($this->connection, $sql, $this->rows);
+        } else {
+            throw new InvalidFilterTypeException('invalid filter type');
+        }
+
+        $rows = $rows ?? $this->rows;
+        foreach($rows as $row) {
+            $line = implode(', ', $row);
+            $this->loadPolicyLine($line, $model);
+        }
+        $this->filtered = true;
     }
 }

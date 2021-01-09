@@ -18,10 +18,13 @@ before_install:
 install:
   - travis_retry composer install --no-suggest --no-interaction
 
+before_script:
+  - export XDEBUG_MODE=coverage
+
 script:
  - vendor/bin/phpunit --version
  - mkdir -p build/logs
- - XDEBUG_MODE=coverage vendor/bin/phpunit
+ - vendor/bin/phpunit
 
 after_script:
  - travis_retry vendor/bin/php-coveralls -v
