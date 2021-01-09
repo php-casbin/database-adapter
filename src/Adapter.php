@@ -184,7 +184,7 @@ class Adapter implements AdapterContract, FilteredAdapter
         $this->connection->execute($sql, $where);
     }
 
-        /**
+    /**
      * Loads only policy rules that match the filter from storage.
      *
      * @param Model $model
