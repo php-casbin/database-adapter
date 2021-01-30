@@ -125,6 +125,21 @@ EOT
         $this->assertTrue($e->enforce('eve', 'data3', 'read'));
     }
 
+    public function testAddPolicies()
+    {
+        $policies = [
+            ['u1', 'd1', 'read'],
+            ['u2', 'd2', 'read'],
+            ['u3', 'd3', 'read'],
+        ];
+        $e = $this->getEnforcer();
+        $e->clearPolicy();
+        $this->initDb(DatabaseAdapter::newAdapter($this->config));
+        $this->assertEquals([], $e->getPolicy());
+        $e->addPolicies($policies);
+        $this->assertEquals($policies, $e->getPolicy());
+    }
+
     public function testSavePolicy()
     {
         $e = $this->getEnforcer();
@@ -147,6 +162,27 @@ EOT
         $this->assertTrue($e->enforce('alice', 'data5', 'read'));
         $e->deletePermissionForUser('alice', 'data5', 'read');
         $this->assertFalse($e->enforce('alice', 'data5', 'read'));
+    }
+
+    public function testRemovePolicies()
+    {
+        $e = $this->getEnforcer();
+        $this->assertEquals([
+            ['alice', 'data1', 'read'],
+            ['bob', 'data2', 'write'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write'],
+        ], $e->getPolicy());
+
+        $e->removePolicies([
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write'],
+        ]);
+
+        $this->assertEquals([
+            ['alice', 'data1', 'read'],
+            ['bob', 'data2', 'write']
+        ], $e->getPolicy());
     }
 
     public function testRemoveFilteredPolicy()
