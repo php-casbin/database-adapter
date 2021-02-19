@@ -9,14 +9,16 @@ use Casbin\Persist\AdapterHelper;
 use Casbin\Persist\FilteredAdapter;
 use Casbin\Persist\Adapters\Filter;
 use Casbin\Exceptions\InvalidFilterTypeException;
+use Casbin\Persist\BatchAdapter;
 use Closure;
+use Throwable;
 
 /**
  * DatabaseAdapter.
  *
  * @author techlee@qq.com
  */
-class Adapter implements AdapterContract, FilteredAdapter
+class Adapter implements AdapterContract, FilteredAdapter, BatchAdapter
 {
     use AdapterHelper;
 
@@ -134,6 +136,38 @@ class Adapter implements AdapterContract, FilteredAdapter
     public function addPolicy(string $sec, string $ptype, array $rule): void
     {
         $this->savePolicyLine($ptype, $rule);
+    }
+
+    public function addPolicies(string $sec, string $ptype, array $rules): void
+    {
+        $table = $this->casbinRuleTableName;
+        $columns = ['p_type', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
+        $values = [];
+        $sets = [];
+        $columnsCount = count($columns);
+        foreach ($rules as $rule) {
+            $values = array_merge($values, array_pad($rule, $columnsCount, null));
+            $sets[] = array_pad([], $columnsCount, '?');
+        }
+        $valuesStr = implode(', ', array_map(function ($set) {
+            return '(' . implode(', ', $set) . ')';
+        }, $sets));
+        $sql = 'INSERT INTO ' . $table . ' (' . implode(', ', $columns) . ')' .
+            ' VALUES' . $valuesStr;
+    }
+
+    public function removePolicies(string $sec, string $ptype, array $rules): void
+    {
+        $this->connection->getPdo()->beginTransaction();
+        try {
+            foreach($rules as $rule) {
+                $this->removePolicy($sec, $ptype, $rule);
+            }
+            $this->connection->getPdo()->commit();
+        } catch (Throwable $e){
+            $this->connection->getPdo()->rollback();
+            throw $e;
+        }
     }
 
     /**
