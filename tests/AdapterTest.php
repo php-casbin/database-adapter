@@ -18,7 +18,7 @@ class AdapterTest extends TestCase
     {
         $this->config = [
             'type' => 'mysql', // mysql,pgsql,sqlite,sqlsrv
-            'hostname' => $this->env('DB_PORT', '127.0.0.1'),
+            'hostname' => $this->env('DB_HOST', '127.0.0.1'),
             'database' => $this->env('DB_DATABASE', 'casbin'),
             'username' => $this->env('DB_USERNAME', 'root'),
             'password' => $this->env('DB_PASSWORD', ''),
