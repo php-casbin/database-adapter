@@ -208,6 +208,34 @@ EOT
         $this->assertFalse($e->enforce('alice', 'data2', 'write'));
     }
 
+    public function testUpdatePolicy()
+    {
+        $e = $this->getEnforcer();
+        $this->assertEquals([
+            ['alice', 'data1', 'read'],
+            ['bob', 'data2', 'write'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write'],
+        ], $e->getPolicy());
+
+        $e->updatePolicy(
+            ['alice', 'data1', 'read'],
+            ['alice', 'data1', 'write']
+        );
+
+        $e->updatePolicy(
+            ['bob', 'data2', 'write'],
+            ['bob', 'data2', 'read']
+        );
+
+        $this->assertEquals([
+            ['alice', 'data1', 'write'],
+            ['bob', 'data2', 'read'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write'],
+        ], $e->getPolicy());
+    }
+
     protected function env($key, $default = null)
     {
         $value = getenv($key);

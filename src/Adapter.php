@@ -10,6 +10,7 @@ use Casbin\Persist\FilteredAdapter;
 use Casbin\Persist\Adapters\Filter;
 use Casbin\Exceptions\InvalidFilterTypeException;
 use Casbin\Persist\BatchAdapter;
+use Casbin\Persist\UpdatableAdapter;
 use Closure;
 use Throwable;
 
@@ -18,7 +19,7 @@ use Throwable;
  *
  * @author techlee@qq.com
  */
-class Adapter implements AdapterContract, FilteredAdapter, BatchAdapter
+class Adapter implements AdapterContract, FilteredAdapter, BatchAdapter, UpdatableAdapter
 {
     use AdapterHelper;
 
@@ -273,5 +274,37 @@ class Adapter implements AdapterContract, FilteredAdapter, BatchAdapter
             $this->loadPolicyLine($line, $model);
         }
         $this->filtered = true;
+    }
+
+    /**
+     * Updates a policy rule from storage.
+     * This is part of the Auto-Save feature.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param string[] $oldRule
+     * @param string[] $newPolicy
+     */
+    public function updatePolicy(string $sec, string $ptype, array $oldRule, array $newPolicy): void
+    {
+        $where['ptype'] = $ptype;
+        $condition[] = 'ptype = :ptype';
+
+        foreach($oldRule as $key => $value) {
+            $placeholder = "w" . strval($key);
+            $where['w' . strval($key)] = $value;
+            $condition[] = 'v' . strval($key) . ' = :' . $placeholder;
+        }
+
+        $update = [];
+        foreach($newPolicy as $key => $value) {
+            $placeholder = "s" . strval($key);
+            $updateValue["$placeholder"] = $value;
+            $update[] = 'v' . strval($key) . ' = :' . $placeholder;
+        }
+
+        $sql = "UPDATE {$this->casbinRuleTableName} SET " . implode(', ', $update) . " WHERE " . implode(' AND ', $condition);
+        
+        $this->connection->execute($sql, array_merge($updateValue, $where));
     }
 }
