@@ -229,51 +229,47 @@ class Adapter implements AdapterContract, FilteredAdapter, BatchAdapter, Updatab
      */
     public function loadFilteredPolicy(Model $model, $filter): void
     {
-        // if $filter is empty, load all policies
-        if (is_null($filter)) {
-            $this->loadPolicy($model);
-            return;
-        }
         // the basic sql
         $sql = 'SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName . ' WHERE ';
-        
-        if ($filter instanceof Filter) {
-            $type = '';
-            $filter = (array) $filter;
-            // choose which ptype to use
-            foreach($filter as $i => $v) {
-                if (!empty($v)) {
-                    array_unshift($filter[$i], $i);
-                    $type = $i;
-                    break;
-                }
+
+        $bind = [];
+
+        if (is_string($filter)) {
+            $filter = str_replace(' ', '', $filter);
+            $filter = str_replace('\'', '', $filter);
+            $filter = explode('=', $filter);
+            $sql .= "$filter[0] = :{$filter[0]}";
+            $bind[$filter[0]] = $filter[1];
+        } else if ($filter instanceof Filter) {
+            foreach($filter->p as $k => $v) {
+                $where[] = $v . ' = :' . $v;
+                $bind[$v] = $filter->g[$k];
             }
-            $items = ['ptype', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
-            $temp = [];
-            $values = [];
-            foreach($items as $i => $item) {
-                if (isset($filter[$type][$i]) && !empty($filter[$type][$i])) {
-                    array_push($temp, $item . '=:' . $item);
-                    $values[$item] = $filter[$type][$i];
-                }
-            }
-            $sql .= implode(' and ', $temp);
-            $rows = $this->connection->query($sql, $values);
-        } elseif (is_string($filter)) {
-            $sql .= $filter;
-            $rows = $this->connection->query($sql);
+            $where = implode(' AND ', $where);
+            $sql .= $where;
         } else if ($filter instanceof Closure) {
-            $filter($this->connection, $sql, $this->rows);
+            $where = '';
+            $filter($where);
+            $where = str_replace(' ', '', $where);
+            $where = str_replace('\'', '', $where);
+            $where = explode('=', $where);
+            $sql .= "$where[0] = :{$where[0]}";
+            $bind[$where[0]] = $where[1];
         } else {
             throw new InvalidFilterTypeException('invalid filter type');
         }
 
-        $rows = $rows ?? $this->rows;
+        $rows = $this->connection->query($sql, $bind);
         foreach($rows as $row) {
-            $line = implode(', ', $row);
-            $this->loadPolicyLine($line, $model);
+            $row = array_filter($row, function($value) { return !is_null($value) && $value !== ''; });
+            unset($row['id']);
+            $line = implode(', ', array_filter($row, function ($val) {
+                return '' != $val && !is_null($val);
+            }));
+            $this->loadPolicyLine(trim($line), $model);
         }
-        $this->filtered = true;
+
+        $this->setFiltered(true);
     }
 
     /**

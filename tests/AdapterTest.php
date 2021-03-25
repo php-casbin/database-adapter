@@ -9,6 +9,7 @@ use CasbinAdapter\Database\Adapter as DatabaseAdapter;
 use PHPUnit\Framework\TestCase;
 use TechOne\Database\Manager;
 use Casbin\Persist\Adapters\Filter;
+use Casbin\Exceptions\InvalidFilterTypeException;
 
 class AdapterTest extends TestCase
 {
@@ -85,34 +86,42 @@ EOT
     public function testLoadFilteredPolicy()
     {
         $this->initConfig();
-        $adapter = DatabaseAdapter::newAdapter($this->config);
-        $adapter->setFiltered(true);
-        $e = $this->getEnforcerWithAdapter($adapter);
+        $this->initDb(DatabaseAdapter::newAdapter($this->config));
+        $e = $this->getEnforcer();
+        $e->clearPolicy();
         $this->assertEquals([], $e->getPolicy());
+
+        // invalid filter type
+        try {
+            $filter = ['alice', 'data1', 'read'];
+            $e->loadFilteredPolicy($filter);
+            $exception = InvalidFilterTypeException::class;
+            $this->fail("Expected exception $exception not thrown");
+        } catch (InvalidFilterTypeException $exception) {
+            $this->assertEquals("invalid filter type", $exception->getMessage());
+        }
 
         // string
         $filter = "v0 = 'bob'";
         $e->loadFilteredPolicy($filter);
         $this->assertEquals([
-            //
-            ['bob', 'data2', 'write', '', '', '']
+            ['bob', 'data2', 'write']
         ], $e->getPolicy());
 
         // Filter
-        $filter = new Filter(['', '', 'read']);
+        $filter = new Filter(['v2'], ['read']);
         $e->loadFilteredPolicy($filter);
         $this->assertEquals([
-            ['alice', 'data1', 'read', '', '', ''],
-            ['data2_admin', 'data2', 'read', '', '', ''],
+            ['alice', 'data1', 'read'],
+            ['data2_admin', 'data2', 'read'],
         ], $e->getPolicy());
 
-        // Closure
-        $e->loadFilteredPolicy(function ($connection, $sql, &$rows) {
-            $rows = $connection->query($sql . "v0 = 'alice'");
+        $e->loadFilteredPolicy(function (&$sql) {
+            $sql .= "v0 = 'alice'";
         });
 
         $this->assertEquals([
-            ['alice', 'data1', 'read', '', '', ''],
+            ['alice', 'data1', 'read'],
         ], $e->getPolicy());
     }
 
