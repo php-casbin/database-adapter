@@ -142,11 +142,12 @@ class Adapter implements AdapterContract, FilteredAdapter, BatchAdapter, Updatab
     public function addPolicies(string $sec, string $ptype, array $rules): void
     {
         $table = $this->casbinRuleTableName;
-        $columns = ['p_type', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
+        $columns = ['ptype', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
         $values = [];
         $sets = [];
         $columnsCount = count($columns);
         foreach ($rules as $rule) {
+            array_unshift($rule, $ptype);
             $values = array_merge($values, array_pad($rule, $columnsCount, null));
             $sets[] = array_pad([], $columnsCount, '?');
         }
@@ -155,6 +156,7 @@ class Adapter implements AdapterContract, FilteredAdapter, BatchAdapter, Updatab
         }, $sets));
         $sql = 'INSERT INTO ' . $table . ' (' . implode(', ', $columns) . ')' .
             ' VALUES' . $valuesStr;
+        $this->connection->execute($sql, $values);
     }
 
     public function removePolicies(string $sec, string $ptype, array $rules): void
