@@ -6,11 +6,11 @@ use Casbin\Model\Model;
 use Casbin\Persist\Adapter as AdapterContract;
 use TechOne\Database\Manager;
 use Casbin\Persist\AdapterHelper;
-use Casbin\Persist\FilteredAdapter;
+use Casbin\Persist\FilteredAdapter as FilteredAdapterContract;
 use Casbin\Persist\Adapters\Filter;
 use Casbin\Exceptions\InvalidFilterTypeException;
-use Casbin\Persist\BatchAdapter;
-use Casbin\Persist\UpdatableAdapter;
+use Casbin\Persist\BatchAdapter as BatchAdapterContract;
+use Casbin\Persist\UpdatableAdapter as UpdatableAdapterContract;
 use Closure;
 use Throwable;
 
@@ -19,7 +19,7 @@ use Throwable;
  *
  * @author techlee@qq.com
  */
-class Adapter implements AdapterContract, FilteredAdapter, BatchAdapter, UpdatableAdapter
+class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterContract, UpdatableAdapterContract
 {
     use AdapterHelper;
 
@@ -304,5 +304,28 @@ class Adapter implements AdapterContract, FilteredAdapter, BatchAdapter, Updatab
         $sql = "UPDATE {$this->casbinRuleTableName} SET " . implode(', ', $update) . " WHERE " . implode(' AND ', $condition);
         
         $this->connection->execute($sql, array_merge($updateValue, $where));
+    }
+
+    /**
+     * UpdatePolicies updates some policy rules to storage, like db, redis.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param string[][] $oldRules
+     * @param string[][] $newRules
+     * @return void
+     */
+    public function updatePolicies(string $sec, string $ptype, array $oldRules, array $newRules): void
+    {
+        $this->connection->getPdo()->beginTransaction();
+        try {
+            foreach ($oldRules as $i => $oldRule) {
+                $this->updatePolicy($sec, $ptype, $oldRule, $newRules[$i]);
+            }
+            $this->connection->getPdo()->commit();
+        } catch (Throwable $e) {
+            $this->connection->getPdo()->rollback();
+            throw $e;
+        }
     }
 }
