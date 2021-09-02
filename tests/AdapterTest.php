@@ -273,6 +273,131 @@ EOT
         ], $e->getPolicy());
     }
 
+    public function arrayEqualsWithoutOrder(array $expected, array $actual)
+    {
+        if (method_exists($this, 'assertEqualsCanonicalizing')) {
+            $this->assertEqualsCanonicalizing($expected, $actual);
+        } else {
+            array_multisort($expected);
+            array_multisort($actual);
+            $this->assertEquals($expected, $actual);
+        }
+    }
+
+    public function testUpdateFilteredPolicies()
+    {
+        $e = $this->getEnforcer();
+        $this->assertEquals([
+            ['alice', 'data1', 'read'],
+            ['bob', 'data2', 'write'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write'],
+        ], $e->getPolicy());
+
+        $e->updateFilteredPolicies([["alice", "data1", "write"]], 0, "alice", "data1", "read");
+        $e->updateFilteredPolicies([["bob", "data2", "read"]], 0, "bob", "data2", "write");
+
+        $policies = [
+            ['alice', 'data1', 'write'],
+            ['bob', 'data2', 'read'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write']
+        ];
+
+        $this->arrayEqualsWithoutOrder($policies, $e->getPolicy());
+
+        // test use updateFilteredPolicies to update all policies of a user
+        $e = $this->getEnforcer();
+        $policies = [
+            ['alice', 'data2', 'write'],
+            ['bob', 'data1', 'read']
+        ];
+        $e->addPolicies($policies);
+
+        $this->arrayEqualsWithoutOrder([
+            ['alice', 'data1', 'read'],
+            ['bob', 'data2', 'write'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write'],
+            ['alice', 'data2', 'write'],
+            ['bob', 'data1', 'read']
+        ], $e->getPolicy());
+
+        $e->updateFilteredPolicies([['alice', 'data1', 'write'], ['alice', 'data2', 'read']], 0, 'alice');
+        $e->updateFilteredPolicies([['bob', 'data1', 'write'], ["bob", "data2", "read"]], 0, 'bob');
+
+        $policies = [
+            ['alice', 'data1', 'write'],
+            ['alice', 'data2', 'read'],
+            ['bob', 'data1', 'write'],
+            ['bob', 'data2', 'read'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write']
+        ];
+
+        $this->arrayEqualsWithoutOrder($policies, $e->getPolicy());
+
+        // test if $fieldValues contains empty string
+        $e = $this->getEnforcer();
+        $policies = [
+            ['alice', 'data2', 'write'],
+            ['bob', 'data1', 'read']
+        ];
+        $e->addPolicies($policies);
+
+        $this->assertEquals([
+            ['alice', 'data1', 'read'],
+            ['bob', 'data2', 'write'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write'],
+            ['alice', 'data2', 'write'],
+            ['bob', 'data1', 'read']
+        ], $e->getPolicy());
+
+        $e->updateFilteredPolicies([['alice', 'data1', 'write'], ['alice', 'data2', 'read']], 0, 'alice', '', '');
+        $e->updateFilteredPolicies([['bob', 'data1', 'write'], ["bob", "data2", "read"]], 0, 'bob', '', '');
+
+        $policies = [
+            ['alice', 'data1', 'write'],
+            ['alice', 'data2', 'read'],
+            ['bob', 'data1', 'write'],
+            ['bob', 'data2', 'read'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write']
+        ];
+
+        $this->arrayEqualsWithoutOrder($policies, $e->getPolicy());
+
+        // test if $fieldIndex is not zero
+        $e = $this->getEnforcer();
+        $policies = [
+            ['alice', 'data2', 'write'],
+            ['bob', 'data1', 'read']
+        ];
+        $e->addPolicies($policies);
+
+        $this->assertEquals([
+            ['alice', 'data1', 'read'],
+            ['bob', 'data2', 'write'],
+            ['data2_admin', 'data2', 'read'],
+            ['data2_admin', 'data2', 'write'],
+            ['alice', 'data2', 'write'],
+            ['bob', 'data1', 'read']
+        ], $e->getPolicy());
+
+        $e->updateFilteredPolicies([['alice', 'data1', 'edit'], ['bob', 'data1', 'edit']], 2, 'read');
+        $e->updateFilteredPolicies([['alice', 'data2', 'read'], ["bob", "data2", "read"]], 2, 'write');
+
+        $policies = [
+            ['alice', 'data1', 'edit'],
+            ['alice', 'data2', 'read'],
+            ['bob', 'data1', 'edit'],
+            ['bob', 'data2', 'read'],
+        ];
+
+        $this->arrayEqualsWithoutOrder($policies, $e->getPolicy());
+    }
+
     protected function env($key, $default = null)
     {
         $value = getenv($key);
