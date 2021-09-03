@@ -328,4 +328,68 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
             throw $e;
         }
     }
+
+    /**
+     * UpdateFilteredPolicies deletes old rules and adds new rules.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param array $newPolicies
+     * @param integer $fieldIndex
+     * @param string ...$fieldValues
+     * @return array
+     */
+    public function updateFilteredPolicies(string $sec, string $ptype, array $newPolicies, int $fieldIndex, string ...$fieldValues): array
+    {
+        $deleteWhere['ptype'] = $ptype;
+        $deleteCondition[] = 'ptype = :ptype';
+        foreach ($fieldValues as $value) {
+            if (!is_null($value) && $value !== '') {
+                $key = $fieldIndex++;
+                $placeholder = "v" . strval($key);
+                $deleteWhere['v' . strval($key)] = $value;
+                $deleteCondition[] = 'v' . strval($key) . ' = :' . $placeholder;
+            }
+        }
+        $deleteSql = "DELETE FROM {$this->casbinRuleTableName} WHERE " . implode(' AND ', $deleteCondition);
+
+        $selectSql = "SELECT * FROM {$this->casbinRuleTableName} WHERE " . implode(' AND ', $deleteCondition);
+        $oldP = $this->connection->query($selectSql, $deleteWhere);
+        foreach ($oldP as &$item) {
+            $item = array_filter($item, function ($value) {
+                return !is_null($value) && $value !== '';
+            });
+            unset($item['ptype']);
+            unset($item['id']);
+        }
+
+        $columns = ['ptype', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
+        $values = [];
+        $sets = [];
+        $columnsCount = count($columns);
+        foreach ($newPolicies as $newPolicy) {
+            array_unshift($newPolicy, $ptype);
+            $values = array_merge($values, array_pad($newPolicy, $columnsCount, null));
+            $sets[] = array_pad([], $columnsCount, '?');
+        }
+        $valuesStr = implode(', ', array_map(function ($set) {
+            return '(' . implode(', ', $set) . ')';
+        }, $sets));
+        $insertSql = 'INSERT INTO ' . $this->casbinRuleTableName . ' (' . implode(', ', $columns) . ')' . ' VALUES ' . $valuesStr;
+
+        // start transaction
+        $this->connection->getPdo()->beginTransaction();
+        try {
+            // delete old data
+            $this->connection->execute($deleteSql, $deleteWhere);
+            // insert new data
+            $this->connection->execute($insertSql, $values);
+            $this->connection->getPdo()->commit();
+        } catch (Throwable $e) {
+            $this->connection->getPdo()->rollback();
+            throw $e;
+        }
+
+        return $oldP;
+    }
 }
