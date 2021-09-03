@@ -344,8 +344,8 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
         $deleteWhere['ptype'] = $ptype;
         $deleteCondition[] = 'ptype = :ptype';
         foreach ($fieldValues as $value) {
+            $key = $fieldIndex++;
             if (!is_null($value) && $value !== '') {
-                $key = $fieldIndex++;
                 $placeholder = "v" . strval($key);
                 $deleteWhere['v' . strval($key)] = $value;
                 $deleteCondition[] = 'v' . strval($key) . ' = :' . $placeholder;
