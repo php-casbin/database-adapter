@@ -61,6 +61,26 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
         $this->filtered = $filtered;
     }
 
+    /**
+     * Filter the rule.
+     *
+     * @param array $rule
+     * @return array
+     */
+    public function filterRule(array $rule): array
+    {
+        $rule = array_values($rule);
+
+        $i = count($rule) - 1;
+        for (; $i >= 0; $i--) {
+            if ($rule[$i] != '' && !is_null($rule[$i])) {
+                break;
+            }
+        }
+
+        return array_slice($rule, 0, $i + 1);
+    }
+
     public static function newAdapter(array $config)
     {
         return new static($config);
@@ -195,16 +215,16 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
     }
 
     /**
-     * RemoveFilteredPolicy removes policy rules that match the filter from the storage.
-     * This is part of the Auto-Save feature.
-     *
      * @param string $sec
      * @param string $ptype
-     * @param int    $fieldIndex
-     * @param string ...$fieldValues
+     * @param int $fieldIndex
+     * @param string|null ...$fieldValues
+     * @return array
+     * @throws Throwable
      */
-    public function removeFilteredPolicy(string $sec, string $ptype, int $fieldIndex, string ...$fieldValues): void
+    public function _removeFilteredPolicy(string $sec, string $ptype, int $fieldIndex, ?string ...$fieldValues): array
     {
+        $removedRules = [];
         $where['ptype'] = $ptype;
         $condition[] = 'ptype = :ptype';
         foreach (range(0, 5) as $value) {
@@ -216,9 +236,35 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
             }
         }
 
-        $sql = 'DELETE FROM '.$this->casbinRuleTableName.' WHERE '.implode(' AND ', $condition);
+        $deleteSql = "DELETE FROM {$this->casbinRuleTableName} WHERE " . implode(' AND ', $condition);
 
-        $this->connection->execute($sql, $where);
+        $selectSql = "SELECT * FROM {$this->casbinRuleTableName} WHERE " . implode(' AND ', $condition);
+
+        $oldP = $this->connection->query($selectSql, $where);
+        foreach ($oldP as &$item) {
+            unset($item['ptype']);
+            unset($item['id']);
+            $item = $this->filterRule($item);
+            $removedRules[] = $item;
+        }
+
+        $this->connection->execute($deleteSql, $where);
+        return $removedRules;
+    }
+
+   /**
+     * RemoveFilteredPolicy removes policy rules that match the filter from the storage.
+     * This is part of the Auto-Save feature.
+     *
+     * @param string $sec
+     * @param string $ptype
+     * @param int $fieldIndex
+     * @param string ...$fieldValues
+     * @throws Exception|Throwable
+     */
+    public function removeFilteredPolicy(string $sec, string $ptype, int $fieldIndex, string ...$fieldValues): void
+    {
+        $this->_removeFilteredPolicy($sec, $ptype, $fieldIndex, ...$fieldValues);
     }
 
     /**
@@ -330,66 +376,27 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
     }
 
     /**
-     * UpdateFilteredPolicies deletes old rules and adds new rules.
-     *
      * @param string $sec
      * @param string $ptype
-     * @param array $newPolicies
-     * @param integer $fieldIndex
+     * @param array $newRules
+     * @param int $fieldIndex
      * @param string ...$fieldValues
      * @return array
+     * @throws Throwable
      */
-    public function updateFilteredPolicies(string $sec, string $ptype, array $newPolicies, int $fieldIndex, string ...$fieldValues): array
+    public function updateFilteredPolicies(string $sec, string $ptype, array $newRules, int $fieldIndex, ?string ...$fieldValues): array
     {
-        $deleteWhere['ptype'] = $ptype;
-        $deleteCondition[] = 'ptype = :ptype';
-        foreach ($fieldValues as $value) {
-            $key = $fieldIndex++;
-            if (!is_null($value) && $value !== '') {
-                $placeholder = "v" . strval($key);
-                $deleteWhere['v' . strval($key)] = $value;
-                $deleteCondition[] = 'v' . strval($key) . ' = :' . $placeholder;
-            }
-        }
-        $deleteSql = "DELETE FROM {$this->casbinRuleTableName} WHERE " . implode(' AND ', $deleteCondition);
-
-        $selectSql = "SELECT * FROM {$this->casbinRuleTableName} WHERE " . implode(' AND ', $deleteCondition);
-        $oldP = $this->connection->query($selectSql, $deleteWhere);
-        foreach ($oldP as &$item) {
-            $item = array_filter($item, function ($value) {
-                return !is_null($value) && $value !== '';
-            });
-            unset($item['ptype']);
-            unset($item['id']);
-        }
-
-        $columns = ['ptype', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
-        $values = [];
-        $sets = [];
-        $columnsCount = count($columns);
-        foreach ($newPolicies as $newPolicy) {
-            array_unshift($newPolicy, $ptype);
-            $values = array_merge($values, array_pad($newPolicy, $columnsCount, null));
-            $sets[] = array_pad([], $columnsCount, '?');
-        }
-        $valuesStr = implode(', ', array_map(function ($set) {
-            return '(' . implode(', ', $set) . ')';
-        }, $sets));
-        $insertSql = 'INSERT INTO ' . $this->casbinRuleTableName . ' (' . implode(', ', $columns) . ')' . ' VALUES ' . $valuesStr;
-
-        // start transaction
+        $oldRules = [];
         $this->connection->getPdo()->beginTransaction();
         try {
-            // delete old data
-            $this->connection->execute($deleteSql, $deleteWhere);
-            // insert new data
-            $this->connection->execute($insertSql, $values);
+            $oldRules = $this->_removeFilteredPolicy($sec, $ptype, $fieldIndex, ...$fieldValues);
+            $this->addPolicies($sec, $ptype, $newRules);
             $this->connection->getPdo()->commit();
         } catch (Throwable $e) {
             $this->connection->getPdo()->rollback();
             throw $e;
         }
 
-        return $oldP;
+        return $oldRules;
     }
 }
