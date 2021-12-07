@@ -119,10 +119,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
         $rows = $this->connection->query('SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName.'');
 
         foreach ($rows as $row) {
-            $line = implode(', ', array_filter($row, function ($val) {
-                return '' != $val && !is_null($val);
-            }));
-            $this->loadPolicyLine(trim($line), $model);
+            $this->loadPolicyArray($this->filterRule($row), $model);
         }
     }
 
@@ -183,11 +180,11 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
     {
         $this->connection->getPdo()->beginTransaction();
         try {
-            foreach($rules as $rule) {
+            foreach ($rules as $rule) {
                 $this->removePolicy($sec, $ptype, $rule);
             }
             $this->connection->getPdo()->commit();
-        } catch (Throwable $e){
+        } catch (Throwable $e) {
             $this->connection->getPdo()->rollback();
             throw $e;
         }
@@ -252,16 +249,16 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
         return $removedRules;
     }
 
-   /**
-     * RemoveFilteredPolicy removes policy rules that match the filter from the storage.
-     * This is part of the Auto-Save feature.
-     *
-     * @param string $sec
-     * @param string $ptype
-     * @param int $fieldIndex
-     * @param string ...$fieldValues
-     * @throws Exception|Throwable
-     */
+    /**
+      * RemoveFilteredPolicy removes policy rules that match the filter from the storage.
+      * This is part of the Auto-Save feature.
+      *
+      * @param string $sec
+      * @param string $ptype
+      * @param int $fieldIndex
+      * @param string ...$fieldValues
+      * @throws Exception|Throwable
+      */
     public function removeFilteredPolicy(string $sec, string $ptype, int $fieldIndex, string ...$fieldValues): void
     {
         $this->_removeFilteredPolicy($sec, $ptype, $fieldIndex, ...$fieldValues);
@@ -288,14 +285,14 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
             $filter = explode('=', $filter);
             $sql .= "$filter[0] = :{$filter[0]}";
             $bind[$filter[0]] = $filter[1];
-        } else if ($filter instanceof Filter) {
-            foreach($filter->p as $k => $v) {
+        } elseif ($filter instanceof Filter) {
+            foreach ($filter->p as $k => $v) {
                 $where[] = $v . ' = :' . $v;
                 $bind[$v] = $filter->g[$k];
             }
             $where = implode(' AND ', $where);
             $sql .= $where;
-        } else if ($filter instanceof Closure) {
+        } elseif ($filter instanceof Closure) {
             $where = '';
             $filter($where);
             $where = str_replace(' ', '', $where);
@@ -308,8 +305,10 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
         }
 
         $rows = $this->connection->query($sql, $bind);
-        foreach($rows as $row) {
-            $row = array_filter($row, function($value) { return !is_null($value) && $value !== ''; });
+        foreach ($rows as $row) {
+            $row = array_filter($row, function ($value) {
+                return !is_null($value) && $value !== '';
+            });
             unset($row['id']);
             $line = implode(', ', array_filter($row, function ($val) {
                 return '' != $val && !is_null($val);
@@ -334,21 +333,21 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
         $where['ptype'] = $ptype;
         $condition[] = 'ptype = :ptype';
 
-        foreach($oldRule as $key => $value) {
+        foreach ($oldRule as $key => $value) {
             $placeholder = "w" . strval($key);
             $where['w' . strval($key)] = $value;
             $condition[] = 'v' . strval($key) . ' = :' . $placeholder;
         }
 
         $update = [];
-        foreach($newPolicy as $key => $value) {
+        foreach ($newPolicy as $key => $value) {
             $placeholder = "s" . strval($key);
             $updateValue["$placeholder"] = $value;
             $update[] = 'v' . strval($key) . ' = :' . $placeholder;
         }
 
         $sql = "UPDATE {$this->casbinRuleTableName} SET " . implode(', ', $update) . " WHERE " . implode(' AND ', $condition);
-        
+
         $this->connection->execute($sql, array_merge($updateValue, $where));
     }
 
