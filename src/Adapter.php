@@ -29,7 +29,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
 
     protected $connection;
 
-    public $casbinRuleTableName = 'casbin_rule';
+    public $policyTableName = 'casbin_rule';
 
     public $rows = [];
 
@@ -38,6 +38,11 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
         $this->config = $config;
         $this->filtered = false;
         $this->connection = (new Manager($config))->getConnection();
+        
+        if (isset($config['policy_table_name']) && !is_null($config['policy_table_name'])) {
+            $this->policyTableName = $config['policy_table_name'];
+        }
+
         $this->initTable();
     }
 
@@ -89,7 +94,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
     public function initTable()
     {
         $sql = file_get_contents(__DIR__.'/../migrations/'.$this->config['type'].'.sql');
-        $sql = str_replace('%table_name%', $this->casbinRuleTableName, $sql);
+        $sql = str_replace('%table_name%', $this->policyTableName, $sql);
         $this->connection->execute($sql, []);
     }
 
@@ -104,7 +109,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
 
         $name = rtrim(str_repeat('?, ', count($col)), ', ');
 
-        $sql = 'INSERT INTO '.$this->casbinRuleTableName.'('.$colStr.') VALUES ('.$name.') ';
+        $sql = 'INSERT INTO '.$this->policyTableName.'('.$colStr.') VALUES ('.$name.') ';
 
         $this->connection->execute($sql, array_values($col));
     }
@@ -116,7 +121,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
      */
     public function loadPolicy(Model $model): void
     {
-        $rows = $this->connection->query('SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName.'');
+        $rows = $this->connection->query('SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->policyTableName.'');
 
         foreach ($rows as $row) {
             $this->loadPolicyArray($this->filterRule($row), $model);
@@ -158,7 +163,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
 
     public function addPolicies(string $sec, string $ptype, array $rules): void
     {
-        $table = $this->casbinRuleTableName;
+        $table = $this->policyTableName;
         $columns = ['ptype', 'v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
         $values = [];
         $sets = [];
@@ -206,7 +211,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
             $condition[] = 'v'.strval($key).' = :'.'v'.strval($key);
         }
 
-        $sql = 'DELETE FROM '.$this->casbinRuleTableName.' WHERE '.implode(' AND ', $condition);
+        $sql = 'DELETE FROM '.$this->policyTableName.' WHERE '.implode(' AND ', $condition);
 
         $this->connection->execute($sql, $where);
     }
@@ -233,9 +238,9 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
             }
         }
 
-        $deleteSql = "DELETE FROM {$this->casbinRuleTableName} WHERE " . implode(' AND ', $condition);
+        $deleteSql = "DELETE FROM {$this->policyTableName} WHERE " . implode(' AND ', $condition);
 
-        $selectSql = "SELECT * FROM {$this->casbinRuleTableName} WHERE " . implode(' AND ', $condition);
+        $selectSql = "SELECT * FROM {$this->policyTableName} WHERE " . implode(' AND ', $condition);
 
         $oldP = $this->connection->query($selectSql, $where);
         foreach ($oldP as &$item) {
@@ -275,7 +280,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
     public function loadFilteredPolicy(Model $model, $filter): void
     {
         // the basic sql
-        $sql = 'SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->casbinRuleTableName . ' WHERE ';
+        $sql = 'SELECT ptype, v0, v1, v2, v3, v4, v5 FROM '.$this->policyTableName . ' WHERE ';
 
         $bind = [];
 
@@ -346,7 +351,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
             $update[] = 'v' . strval($key) . ' = :' . $placeholder;
         }
 
-        $sql = "UPDATE {$this->casbinRuleTableName} SET " . implode(', ', $update) . " WHERE " . implode(' AND ', $condition);
+        $sql = "UPDATE {$this->policyTableName} SET " . implode(', ', $update) . " WHERE " . implode(' AND ', $condition);
 
         $this->connection->execute($sql, array_merge($updateValue, $where));
     }
