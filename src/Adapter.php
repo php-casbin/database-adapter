@@ -4,7 +4,7 @@ namespace CasbinAdapter\Database;
 
 use Casbin\Model\Model;
 use Casbin\Persist\Adapter as AdapterContract;
-use TechOne\Database\Manager;
+use Leeqvip\Database\Manager;
 use Casbin\Persist\AdapterHelper;
 use Casbin\Persist\FilteredAdapter as FilteredAdapterContract;
 use Casbin\Persist\Adapters\Filter;
@@ -38,7 +38,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
         $this->config = $config;
         $this->filtered = false;
         $this->connection = (new Manager($config))->getConnection();
-        
+
         if (isset($config['policy_table_name']) && !is_null($config['policy_table_name'])) {
             $this->policyTableName = $config['policy_table_name'];
         }

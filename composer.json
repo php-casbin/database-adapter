@@ -4,14 +4,14 @@
     "description": "Database adapter for php-casbin. ",
     "authors": [
         {
-            "name": "TechLee",
-            "email": "techlee@qq.com"
+            "name": "leeqvip",
+            "email": "leeqvip@gmail.com"
         }
     ],
     "license": "Apache-2.0",
     "require": {
         "casbin/casbin": "^3.0",
-        "techone/database": "^0.2"
+        "leeqvip/database": "^1.0"
     },
     "require-dev": {
         "phpunit/phpunit": "~7.0|~8.0|~9.0",

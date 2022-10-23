@@ -7,7 +7,7 @@ use Casbin\Model\Model;
 use Casbin\Persist\Adapter;
 use CasbinAdapter\Database\Adapter as DatabaseAdapter;
 use PHPUnit\Framework\TestCase;
-use TechOne\Database\Manager;
+use Leeqvip\Database\Manager;
 use Casbin\Persist\Adapters\Filter;
 use Casbin\Exceptions\InvalidFilterTypeException;
 
