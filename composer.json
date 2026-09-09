@@ -10,7 +10,7 @@
     ],
     "license": "Apache-2.0",
     "require": {
-        "casbin/casbin": "^4.0",
+        "casbin/casbin": "^4.5",
         "leeqvip/database": "^2.0"
     },
     "require-dev": {
